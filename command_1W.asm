@@ -29,32 +29,32 @@ command_1wire_rw:
 	mov R3, #33h	; READ ROM
 	mov R4, A
 	mov R5, #8		; 64 bity = 8 bajtów
-	acall get_2_hex_numbers
+	bcall get_2_hex_numbers
 	; wysyłamy R4 (jeśli nie zero), R5
 	; potem jeśli R2 nie jest zerem, to wysyłamy jeszcze R2 i R3
 	; a jeśli R2 jest zerem, to czytamy R3 bajtów
-	acall ow_reset
+	bcall ow_reset
 	jc error_1w_err
 	mov A, R4
 	jz command_1wire_rw_skip
-	acall ow_write
+	bcall ow_write
 command_1wire_rw_skip:
 	mov A, R5
-	acall ow_write
+	bcall ow_write
 	mov A, R2
 	jnz command_1wire_rw_write
 	; czytamy R3 bajtów
 command_1wire_rw_loop:
-	acall ow_read
-	acall uart_send_hex_byte
+	bcall ow_read
+	bcall uart_send_hex_byte
 	djnz R3, command_1wire_rw_loop
 	ret
 command_1wire_rw_write:
 	; wysyłamy jeszcze R2 i R3
 	mov A, R2
-	acall ow_write
+	bcall ow_write
 	mov A, R3
-	ajmp ow_write
+	bjmp ow_write
 
 ;-----------------------------------------------------------
 ; Obsługuje komendę 1W1 - przywróć tryb 1-wire czujnikowi DS1821
@@ -74,11 +74,11 @@ command_1wire_ds1821_loop:	; "toggling the DQ line low 16 times"
 	djnz R7, command_1wire_ds1821_loop
 	nop
 	setb OW_PWR
-	acall ow_reset
+	bcall ow_reset
 	jc error_1w_err
 	ret
 
 ;-----------------------------------------------------------
 error_1w_err:
 	mov DPTR, #s_error_1w_err
-	ajmp print_error_then_prompt
+	bjmp print_error_then_prompt

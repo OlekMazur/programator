@@ -13,25 +13,7 @@
 ; You should have received a copy of the GNU General Public License
 ; along with Programator. If not, see <https://www.gnu.org/licenses/>.
 ;
-; Copyright (c) 2022 Aleksander Mazur
-;
-; Budowa systemu:
-; - mikrokontroler AT89C2051 z kwarcem 11,0592 MHz
-; - slot DIP20, do którego można włożyć od góry:
-;  - pamięć EEPROM I2C: AT24CXX
-;  - pamięć EEPROM SPI: 93CX6
-;  - mikrokontroler Atmel ATtiny2313
-; Połączenia mikrokontrolera "hosta" ze slotem:
-; - host	slot	guest	ATtiny	24CXX	93CX6	1-wire
-; - P1.4	pin 01	RST		nRST	A0		CS		GND
-; - P1.3	pin 02	RXD		RXD		A1		CLK		DQ
-; - P1.2	pin 03	TXD		TXD		A2		DI		VCC
-; - P1.1	pin 04	XTAL2	XTAL2	GND		DO
-; - GND		pin 10	GND		GND
-; - VCC		pin 20	VCC		VCC		VCC		VCC
-; - P1.7	pin 19	CLK		SCK		WP		PE
-; - P1.6	pin 18	DAT		MISO	SCL		ORG
-; - P1.5	pin 17	P1.5	MOSI	SDA		GND
+; Copyright (c) 2022, 2024 Aleksander Mazur
 
 $nomod51
 $include (89c2051.mcu)
@@ -66,8 +48,11 @@ endm
 
 bseg
 flag_receive_overflow:	dbit 1	; czy nastąpiło przepełnienie bufora wejściowego
-flag_reading:			dbit 1	; czy teraz ma nastąpić bajt z liczbą bajtów do odczytu
+if	ICP51_W79EX051
+flag_7bits:				dbit 1	; czy wysłać tylko 7 bitów z następnego bajtu
 flag_now_lsb:			dbit 1	; czy teraz ma nastąpić znak z młodszą połówką liczby szesnastkowej (cały bajt składamy w R2)
+flag_icp51_init:		dbit 1	; czy mikrokontroler jest już w trybie programowania, gotowy na komendy
+endif
 flag_end:
 
 ;===========================================================
@@ -85,6 +70,12 @@ bit_addresable:		ds (flag_end+7)/8
 spi_address_bits:		ds 1	; wykryta liczba bitów adresu pamięci 93XXY6X (najmłodszy bit: 1=tryb 8-bitowy, 0=tryb 16-bitowy)
 if	USE_I2C
 i2c_eeprom_page_mask:	ds 1	; maska bitów, które są wyzerowane na krawędzi strony (np. 00000111b -> strona 8-bajtowa)
+endif
+if	ICP51_W79EX051
+icp51_clock_delay:		ds 1	; opóźnienie przy transmisji bitu do ICP51 (w trakcie aktywnego stanu CLK)
+icp51_clock_delay_low:	ds 1	; opóźnienie przy transmisji danych do ICP51 (w stanie niskim CLK)
+icp51_clock_delay_high:	ds 1	; opóźnienie przy transmisji danych do ICP51 (w stanie wysokim CLK)
+icp51_cmd_read_flash:	ds 1	; kod operacji odczytu używany w poleceniach D i V (normalnie 00h)
 endif
 temp:				ds 1
 ; bufor na znaki przyjmowanego polecenia albo na (binarne) bajty danych
@@ -116,7 +107,7 @@ zero_RAM:
 	mov TL1, A
 	mov TH1, A
 	mov TCON, #01000000b	; uruchomienie timera 1
-	; inicjacja portu UART - tryb 1 (8-bitowy UART z baudatem sterowanym timerem 1); włączenie odbioru (REN=bit4)
+	; inicjacja portu UART - tryb 1 (8-bitowy UART z baudrate'm sterowanym timerem 1); włączenie odbioru (REN=bit4)
 	mov SCON, #01010000b
 	mov IE, #10010000b		; włączenie przerwań SINT (ES0=bit4) i globalnej flagi przerwań (EA=bit7)
 	; ES0=1 żeby UART działał i ustawiał flagi TI,RI
@@ -124,12 +115,19 @@ zero_RAM:
 if	USE_I2C
 	mov i2c_eeprom_page_mask, #00000111b	; domyślnie strony 8-bajtowe - słuszne dla AT24C01 i 02, od 04 w górę mają 16-bajtowe
 endif
+if	ICP51_W79EX051
+	mov icp51_clock_delay, #149
+endif
 	sjmp jump_over_sint
 
 org	SINT
 	reti
 
 jump_over_sint:
+if	ICP51_W79EX051
+	mov icp51_clock_delay_low, #5
+	mov icp51_clock_delay_high, #3
+endif
 
 ;-----------------------------------------------------------
 ; Czekamy na <CR>
@@ -302,6 +300,11 @@ $include (library.asm)
 ; R1 = adres pierwszego znaku za nazwą polecenia - tj. spacja
 ; R0 = adres pierwszego znaku za linią polecenia - jeśli R0=R1, to nie ma argumentów
 
+if	ICP51_W79EX051
+$include (w79ex051.asm)
+$include (command_NR_NT.asm)
+endif
+
 error_illopt:
 	mov DPTR, #s_error_illopt
 	ajmp print_error_then_prompt
@@ -309,6 +312,10 @@ error_illopt:
 if	USE_AVR
 $include (command_DAE_VAE_LAE_DA_VA_LA_KA.asm)
 $include (avr.asm)
+endif
+
+if	ICP51_W79EX051
+$include (command_D_V_LB_K.asm)
 endif
 
 if	DEBUG
@@ -359,8 +366,9 @@ endif
 	db	'D', s_commands_D - s_commands
 	db	'V', s_commands_V - s_commands
 	db	'L', s_commands_L - s_commands
-if	USE_AVR
 	db	'K', s_commands_K - s_commands
+if	ICP51_W79EX051
+	db	'N', s_commands_N - s_commands
 endif
 if	USE_1WIRE
 	db	'1', s_commands_1 - s_commands
@@ -386,7 +394,12 @@ if	DEBUG
 	db	'R', s_commands_DR - s_commands
 	db	'P', s_commands_DP - s_commands
 endif
+if	ICP51_W79EX051
+	db	0
+	bjmp command_dump_icp51_flash
+else
 	db	-1
+endif
 s_commands_V:
 if	USE_I2C
 	db	'X', s_commands_VX - s_commands
@@ -400,10 +413,20 @@ endif
 if	DEBUG
 	db	'R', s_commands_VR - s_commands
 endif
+if	ICP51_W79EX051
+	db	0
+	bjmp command_verify_icp51_flash
+else
 	db	-1
-if	USE_AVR
+endif
 s_commands_K:
+if	USE_AVR
 	db	'A', s_commands_KA - s_commands
+endif
+if	ICP51_W79EX051
+	db	0
+	bjmp command_icp51_chip_erase
+else
 	db	-1
 endif
 s_commands_L:
@@ -419,9 +442,16 @@ endif
 if	DEBUG
 	db	'R', s_commands_LR - s_commands
 endif
+if	ICP51_W79EX051
+	db	'B', s_commands_LB - s_commands
+endif
 	db	-1
 s_commands_W:
 	db	'P', s_commands_WP - s_commands
+if	ICP51_W79EX051
+	db	'R', s_commands_WR - s_commands
+	db	'W', s_commands_WW - s_commands
+endif
 	db	-1
 if	USE_1WIRE
 s_commands_1:
@@ -431,6 +461,38 @@ endif
 s_commands_R:
 	db	0
 	bjmp command_read
+if	ICP51_W79EX051
+s_commands_N:
+	db	'R', s_commands_NR - s_commands
+	db	'T', s_commands_NT - s_commands
+	db	-1
+s_commands_NR:
+	db	0
+	bjmp command_icp51_reset
+s_commands_NT:
+	db	0
+	bjmp command_icp51_transfer
+s_commands_WR:
+	db	'F', s_commands_WRF - s_commands
+	db	0
+	bjmp command_write_icp51_delay
+s_commands_WRF:
+	db	0
+	bjmp command_write_icp51_cmd_read_flash
+s_commands_WW:
+	db	'L', s_commands_WWL - s_commands
+	db	'H', s_commands_WWH - s_commands
+	db	-1
+s_commands_WWL:
+	db	0
+	bjmp command_write_icp51_delay_low
+s_commands_WWH:
+	db	0
+	bjmp command_write_icp51_delay_high
+s_commands_LB:
+	db	0
+	bjmp command_load_icp51_flash
+endif
 if	USE_I2C
 s_commands_DX:
 	db	0
@@ -536,14 +598,25 @@ s_error_notspc:	db	"NOTSPC",0
 s_error_nothex:	db	"NOTHEX",0
 s_error_argreq:	db	"ARGREQ",0
 s_error_illopt:	db	"ILLOPT",0
+if	USE_I2C
 s_error_i2cerr:	db	"I2C KO",0
+endif
+if	USE_1WIRE
 s_error_1w_err:	db	"1-WIRE KO",0
+endif
+if	USE_SPI
 s_error_spierr:	db	"SPI KO",0
+endif
+if	USE_AVR
 s_error_avrerr:	db	"AVR KO",0
+endif
+if	ICP51_W79EX051
+s_error_icp51err:	db	"ICP51 KO",0
+endif
 s_error_odd_address:	db	"ODD ADDRESS IN 16-BIT MODE",0
-s_spi_org:	db	'ADDRESS BITS:',0
+s_spi_org:	db	"ADDRESS BITS:",0
 s_prompt:	db	13,10,"> ",0
-s_welcome:	db	"AVR/EEPROM PROGRAMMER VERSION 0.1  Copyright (C) 2022 Aleksander Mazur",0
+s_welcome:	db	"W79EX051/AVR PROGRAMMER VERSION 1.0  Copyright (C) 2022-2024 Aleksander Mazur",0
 
 ;===========================================================
 

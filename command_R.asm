@@ -13,7 +13,7 @@
 ; You should have received a copy of the GNU General Public License
 ; along with Programator. If not, see <https://www.gnu.org/licenses/>.
 ;
-; Copyright (c) 2022 Aleksander Mazur
+; Copyright (c) 2022, 2024 Aleksander Mazur
 ;
 ; Procedura obsługi polecenia R
 ; Wypluwa wartości różnych rejestrów
@@ -36,6 +36,38 @@ if	USE_I2C
 	mov R6, #'G'	; PG - maska rozmiaru strony AT24CXX (I2C EEPROM)
 	mov R7, i2c_eeprom_page_mask
 	acall print_port
+endif
+
+if	ICP51_W79EX051
+	acall uart_send_space
+
+	mov A, #'R'	; R - ICP51 clock delay
+	mov R7, icp51_clock_delay
+	acall print_rest
+
+	acall uart_send_space
+
+	mov A, #'W'
+	acall uart_send_char
+	mov A, #'L'	; WL - ICP51 clock delay (w stanie niskim przed impulsem)
+	mov R7, icp51_clock_delay_low
+	acall print_rest
+
+	acall uart_send_space
+
+	mov A, #'W'
+	acall uart_send_char
+	mov A, #'H'	; WH - ICP51 clock delay (w stanie wysokim)
+	mov R7, icp51_clock_delay_high
+	acall print_rest
+
+	acall uart_send_space
+
+	mov A, #'R'
+	acall uart_send_char
+	mov A, #'F'	; RF - ICP51 flash read command code
+	mov R7, icp51_cmd_read_flash
+	acall print_rest
 endif
 
 	ret

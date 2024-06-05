@@ -13,7 +13,7 @@
 ; You should have received a copy of the GNU General Public License
 ; along with Programator. If not, see <https://www.gnu.org/licenses/>.
 ;
-; Copyright (c) 2022 Aleksander Mazur
+; Copyright (c) 2022, 2024 Aleksander Mazur
 ;
 ; Procedura obsługi polecenia W {P1 | P3} byte
 ; Wpisuje wartość do portu
@@ -48,6 +48,28 @@ if	USE_I2C
 command_write_pagemask:
 	acall get_new_param_value
 	mov i2c_eeprom_page_mask, R3
+	ret
+endif
+
+if	ICP51_W79EX051
+command_write_icp51_delay:
+	acall get_new_param_value
+	mov icp51_clock_delay, R3
+	ret
+
+command_write_icp51_delay_low:
+	acall get_new_param_value
+	mov icp51_clock_delay_low, R3
+	ret
+
+command_write_icp51_delay_high:
+	acall get_new_param_value
+	mov icp51_clock_delay_high, R3
+	ret
+
+command_write_icp51_cmd_read_flash:
+	acall get_new_param_value
+	mov icp51_cmd_read_flash, R3
 	ret
 endif
 

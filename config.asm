@@ -29,6 +29,11 @@ P1RD_I2C_EEPROM	equ	11100001b	; wpisać do P1 przed odczytem
 P1WR_I2C_EEPROM	equ	01100001b	; wpisać do P1 przed zapisem
 I2C_EEPROM_ADDR	equ	10100000b	; adres AT24CXX na magistrali I2C
 
+; ICP51 - podłączenie W79EX051
+ICP51_RST	equ P1.4
+ICP51_CLK	equ P1.7
+ICP51_DAT	equ P1.6
+
 ; 1-wire
 OW_PWR		equ P1.4
 OW_DQ		equ P1.3
@@ -50,10 +55,11 @@ AVR_MOSI		equ	P1.5
 AVR_nRST		equ	P1.4
 
 ; konfiguracja buildu
-AT89C4051		equ 1
+AT89C4051		equ	1
 USE_HELP		equ	1
 DEBUG			equ	1
-USE_1WIRE		equ 1
-USE_I2C			equ 1
-USE_SPI			equ 1
-USE_AVR			equ 1
+ICP51_W79EX051	equ	1
+USE_1WIRE		equ	1
+USE_I2C			equ	1
+USE_SPI			equ	1
+USE_AVR			equ	1
