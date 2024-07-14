@@ -50,6 +50,7 @@ flag_icp51_init:		dbit 1	; czy mikrokontroler jest już w trybie programowania, 
 endif
 if	USE_AT89CX051
 flag_at89cx051_init:	dbit 1	; czy zostało już stwierdzone, że jest podłączony mikrokontroler
+flag_at89cx051_nobsy:	dbit 1	; czy programować bez sprawdzania flagi RDY/BSY (P3.1)
 endif
 flag_end:
 
@@ -597,6 +598,7 @@ if	ICP51_W79EX051
 endif
 if	USE_AT89CX051
 	db	'A', s_commands_W_A - s_commands
+	db	'N', s_commands_W_N - s_commands
 endif
 	db	-1
 if	USE_AT89CX051
@@ -607,6 +609,12 @@ s_commands_W_A:
 s_commands_W_AM:
 	db	0
 	bjmp command_write_at89cx051_mask
+s_commands_W_N:
+	db	'B', s_commands_W_NB - s_commands
+	db	-1
+s_commands_W_NB:
+	db	0
+	bjmp command_write_at89cx051_nobsy
 endif
 s_commands_W_P:
 	db	'1', s_commands_W_P1 - s_commands
@@ -738,6 +746,7 @@ s_help_L_atmel:	db	"Load AT89CX051 flash",0
 s_help_K_atmel:	db	"Klear AT89CX051 flash",0
 s_help_W_AM:	db	"Set high order address mask (3,7,F)",0
 s_help_W_A:		db	"Override address counter",0
+s_help_W_NB:	db	"Whether L should ignore RDY/BSY",0
 endif
 if	USE_I2C
 s_help_DX:	db	"Dump AT24CXX EEPROM (I2C)",0

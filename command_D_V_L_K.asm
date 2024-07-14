@@ -143,22 +143,28 @@ cb_load_at89cx051_loop2:
 	acall wait_10us	; t_GHSL: min.10µs
 	setb AT89C_VPP	; opuszczenie RST/VPP z 12V spowrotem do 5V
 	acall at89cx051_init_read_flash	; poza wystawieniem jedynek na P1 równoważne clr AT89C_ENABLE
-	jnc cb_load_at89cx051_loop3
-	; /BUSY nie opadło od razu po puszczeniu /PROG
-	; jeśli nie opadło i teraz -> błąd F
-	jb AT89C_RDY_BSY, cb_load_at89cx051_code_F
-cb_load_at89cx051_loop3:
-	; czekamy t_WC (max.2ms) aż /BUSY wstanie
+	; t_WC - czas programowania bajtu to max.2ms
 	mov TH0, #-8
 	mov TL0, #-52
-	setb TR0
+	setb TR0	; uruchamiamy timer na 2ms
+	jb flag_at89cx051_nobsy, cb_load_at89cx051_no_BSY
+	jnc cb_load_at89cx051_wait
+	; /BUSY nie opadło od razu po puszczeniu /PROG
+	jnb AT89C_RDY_BSY, cb_load_at89cx051_wait
+	; /BUSY nie opadło nawet teraz -> błąd F
+	jnb flag_at89cx051_nobsy, cb_load_at89cx051_code_F
 cb_load_at89cx051_wait:
+	; czekamy max.2ms na podniesienie linii /BUSY
 	jb AT89C_RDY_BSY, cb_load_at89cx051_loop4
 	jnb flag_timer, cb_load_at89cx051_wait
 	; timeout
+	clr TR0
 cb_load_at89cx051_code_F:
 	mov A, #'F'
 	ret
+cb_load_at89cx051_no_BSY:
+	; kazano nam ignorować /BUSY, więc po prostu zaczekamy te 2ms
+	acall sleep_timer0
 cb_load_at89cx051_loop4:
 	clr TR0
 	; weryfikacja

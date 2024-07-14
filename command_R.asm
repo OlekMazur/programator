@@ -69,6 +69,17 @@ if	USE_AT89CX051
 	acall print_rest
 	mov A, at89cx051_addr_L
 	acall uart_send_hex_byte
+
+	acall uart_send_space
+
+	mov A, #'N'
+	acall uart_send_char
+	clr A
+	mov C, flag_at89cx051_nobsy
+	rlc A
+	mov R7, A
+	mov A, #'B'	; NB - AT89CX051 noBSY
+	acall print_rest
 endif
 
 	ret

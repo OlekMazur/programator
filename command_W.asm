@@ -100,6 +100,18 @@ command_write_at89cx051_address:
 	mov at89cx051_addr_L, R3
 	setb flag_at89cx051_init	; przyjmijmy, że użytkownik wie, co robi
 	ret
+
+;-----------------------------------------------------------
+; W NB 0|1
+if	USE_HELP_DESC
+	dw	s_help_W_NB
+endif
+command_write_at89cx051_nobsy:
+	acall get_new_param_value
+	mov A, R3
+	rrc A
+	mov flag_at89cx051_nobsy, C
+	ret
 endif
 
 error_argreq:

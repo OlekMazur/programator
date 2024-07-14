@@ -308,14 +308,10 @@ The command takes an optional argument - code of erase operation
 
 Code 22h is used by default, so `K` alone clears just the AP flash.
 
-Release
--------
+Firmware variants
+-----------------
 
-Download all the latest *.hex* files: [programator.zip]
-
-### Firmware variants
-
-Attached makefile creates *.hex* and *.bin* files for each *build-XX.asm*.
+Makefile creates *.hex* and *.bin* files for each *build-XX.asm*.
 Currently there are 3 builds defined:
 
 | Variant | Description |

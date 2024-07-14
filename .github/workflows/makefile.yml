@@ -27,12 +27,12 @@ jobs:
     - name: Build
       run: PATH="$PWD/tools:$PWD/output/asem51:$PATH" make ASEM51="asem -i $PWD/output/asem51/mcu"
     - name: Prepare artifact
-      run: |
-        cp LICENSE.md output
-        cd output
-        zip programator.zip LICENSE.md *.hex
+      run: cp LICENSE.md output
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: binaries
-        path: output/programator.zip
+        compression-level: 9
+        path: |
+          output/LICENSE.md
+          output/*.hex
