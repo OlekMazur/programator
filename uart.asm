@@ -18,42 +18,25 @@
 ; Procedury obsługi UART niższego poziomu
 
 ;-----------------------------------------------------------
-; Odbiera znak i zeruje RI
-; Na wejściu RI=1
-; Nie wraca, jeśli tym znakiem był break lub control-C
-; Kiedy wraca, to zwraca odebrany znak w A
-uart_receive_internal:
-	; coś przyszło
-	mov A, SBUF
-	jnz uart_receive_internal2
-	jb RB8, uart_receive_internal2
-	; "An incoming break character (defined as a received null character (00h) with the stop bit = 0) causes the ROM loader to be restarted"
-	; imitacja software'owego resetu
-	clr A
-	mov IE, A
-	mov SCON, A
-	mov TCON, A
-	dec A
-	mov P1, A
-	mov P3, A
-	ajmp start	; tam też sczyścimy RI
-uart_receive_internal2:
-	clr RI	; czyszczenie RI dopiero po sprawdzeniu RB8
-	cjne A, #3, ret2
-	; "an ASCII control-C character (^C) causes the ROM loader to terminate any function currently being executed and display the command line prompt"
-	ajmp print_prompt
-
-;-----------------------------------------------------------
 ; Czeka na odbiór znaku
 ; Zwraca odebrany znak w A, lub nie wraca
+; Odbiór znaku od wyjścia z trybu IDLE
+; (przy flag_rx_busy=1, flag_rx_stop=1, uart_rx_buffer!=3)
+; trwa 120 cykli (+ przerwanie SINT)
 uart_receive_char:
-	jb RI, uart_receive_internal
+	jnb flag_rx_busy, uart_receive_wait		; 24 cykle
+	; coś przyszło
+	mov A, uart_rx_buffer	; 12 cykli
+	clr flag_rx_busy		; 12 cykli
+	cjne A, #3, ret2		; 24 cykle
+	; "an ASCII control-C character (^C) causes the ROM loader to terminate any function currently being executed and display the command line prompt"
+	ajmp print_welcome
+uart_receive_wait:
 	orl PCON, #00000001b	; PCON.0=IDL, "Set to enter idle mode" (sleep)
-	sjmp uart_receive_char
+	sjmp uart_receive_char	; 24 cykle
 
 ;-----------------------------------------------------------
 ; Wysyła znaki z ROM spod adresu podanego w DPTR aż do 0
-; Na wejściu TI powinno być 0
 ; Niszczy A, DPTR ustawia na pozycję znaku 0 kończącego transmisję
 uart_send_rom:
 	clr A
@@ -63,7 +46,7 @@ uart_send_rom:
 	inc DPTR
 	sjmp uart_send_rom	; następny znak
 ret2:
-	ret
+	ret	; 24 cykle
 
 ;-----------------------------------------------------------
 ; Wysyła bajt z A jako 2 cyfry szesnastkowe w ASCII
@@ -93,21 +76,12 @@ uart_send_hex_digit_ok:
 	; sjmp uart_send_char
 ;-----------------------------------------------------------
 ; Wysyła znak z A
-; Na wejściu TI powinno być 0, na wyjściu też jest 0
-; Wraca, gdy znak się wyśle
+; Jeśli trwa jeszcze nadawanie poprzedniego znaku, to najpierw czeka, aż tamten się wyśle
 uart_send_char:
+	jb flag_tx_busy, uart_send_char
 	mov SBUF, A
-uart_send_wait:
-	orl PCON, #00000001b	; PCON.0=IDL, "Set to enter idle mode" (sleep)
-	jb RI, uart_send_RI
-uart_send_wait2:
-	jnb TI, uart_send_wait
-	clr TI
+	setb flag_tx_busy
 	ret
-uart_send_RI:
-	acall uart_receive_internal
-	; ignorujemy odbierane znaki
-	sjmp uart_send_wait2
 
 ;-----------------------------------------------------------
 ; Wysyła spację

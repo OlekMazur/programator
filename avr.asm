@@ -37,10 +37,9 @@ avr_init_loop2:
 	; nRST=0
 	clr AVR_nRST
 	; sleep 20ms
-	mov R5, #36
-avr_init_loop3:
-	djnz R6, avr_init_loop3
-	djnz R5, avr_init_loop3
+	mov TH0, #-72
+	mov TL0, #0
+	acall sleep_timer0
 	; wysyłamy Programming Enable (0xAC53)
 	mov A, #10101100b
 	acall avr_transfer_byte
@@ -105,6 +104,8 @@ avr_poll_rdy_bsy_loop:
 avr_poll_rdy_bsy_end:
 	ret
 avr_poll_rdy_bsy_loop2:
-	mov R6, #230
-	djnz R6, $	; 0,5 ms
+	; było 230 djnz-ów (0,5ms)
+	mov TH0, #-2
+	mov TL0, #-204
+	acall sleep_timer0
 	sjmp avr_poll_rdy_bsy_loop

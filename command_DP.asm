@@ -13,18 +13,23 @@
 ; You should have received a copy of the GNU General Public License
 ; along with Programator. If not, see <https://www.gnu.org/licenses/>.
 ;
-; Copyright (c) 2022 Aleksander Mazur
+; Copyright (c) 2022, 2024 Aleksander Mazur
 ;
 ; Procedura obsługi polecenia DP [begin-address [end-address]]
 ; Zrzuca zawartość pamięci programu hosta
 
+;-----------------------------------------------------------
+; DP [begin-address [end-address]]
+if	USE_HELP_DESC
+	dw	s_help_DP
+endif
 command_dump_host_ROM:
 	clr A
 	mov R2, A
 	mov R3, A
-	mov R4, #total_program_size shr 8
-	mov R5, #total_program_size and 0FFh
-	acall get_2_hex_numbers
+	mov R4, #(total_program_size - 1) shr 8
+	mov R5, #(total_program_size - 1) and 0FFh
+	acall get_address_range
 	; mamy zakres zrzutu: R2:R3 bajtów poczynając od R4:R5
 	mov DPTR, #cb_dump_ROM
 	ajmp dump_hex_file

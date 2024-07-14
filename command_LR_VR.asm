@@ -13,14 +13,25 @@
 ; You should have received a copy of the GNU General Public License
 ; along with Programator. If not, see <https://www.gnu.org/licenses/>.
 ;
-; Copyright (c) 2022 Aleksander Mazur
+; Copyright (c) 2022, 2024 Aleksander Mazur
 ;
 ; Procedury obsługi poleceń LR i VR
 ; LR zapisuje dane do RAMu hosta, a VR weryfikuje je
 
+;-----------------------------------------------------------
+; LR
+if	USE_HELP_DESC
+	dw	s_help_LR
+endif
 command_load_host_RAM:
 	setb F0
 	sjmp command_lv_host_RAM
+
+;-----------------------------------------------------------
+; VR
+if	USE_HELP_DESC
+	dw	s_help_VR
+endif
 command_verify_host_RAM:
 	clr F0
 command_lv_host_RAM:

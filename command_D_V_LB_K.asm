@@ -24,14 +24,18 @@
 
 ;-----------------------------------------------------------
 ; D [begin-address [end-address]]
+if	USE_HELP_DESC
+	dw	s_help_D
+endif
 command_dump_icp51_flash:
+	; domyślnie D 0 7FF
 	acall icp51_init
 	clr A
 	mov R2, A
 	mov R3, A
-	mov R4, #8h
-	mov R5, A
-	acall get_2_hex_numbers
+	mov R4, #7h
+	mov R5, #0FFh
+	acall get_address_range
 	; mamy zakres zrzutu: R2:R3 bajtów poczynając od R4:R5
 	mov DPTR, #cb_dump_icp51
 	ajmp dump_hex_file
@@ -50,9 +54,7 @@ cb_dump_icp51_loop:
 	djnz R1, cb_dump_icp51_loop2
 	; wysyłamy bit 1 czyli zakończenie operacji odczytu
 	acall icp51_send_bit1
-	clr C
-	mov R0, #input
-	ret
+	ajmp cb_ret_input_OK
 cb_dump_icp51_loop2:
 	; wysyłamy bit 0 czyli kontynuacja operacji odczytu
 	clr C
@@ -61,6 +63,9 @@ cb_dump_icp51_loop2:
 
 ;-----------------------------------------------------------
 ; V
+if	USE_HELP_DESC
+	dw	s_help_V
+endif
 command_verify_icp51_flash:
 	acall ensure_no_args
 	acall icp51_init
@@ -95,6 +100,9 @@ cb_verify_icp51_loop2:
 
 ;-----------------------------------------------------------
 ; LB
+if	USE_HELP_DESC
+	dw	s_help_LB
+endif
 command_load_icp51_flash:
 	acall ensure_no_args
 	acall icp51_init
@@ -122,17 +130,29 @@ cb_load_icp51_loop2:
 	sjmp cb_load_icp51_loop
 
 ;-----------------------------------------------------------
-; K
+; K [kod operacji]
+if	USE_HELP_DESC
+	dw	s_help_K
+endif
 command_icp51_chip_erase:
+	mov R2, #0
+	mov R3, #22h	; kod operacji kasowania tylko flasha
+	acall get_hex_arg
+	jc command_icp51_chip_erase_noargs
+	; przyjmujemy tylko 1 bajt z kodem operacji (np. 26h = kasuj wszystko)
+	mov A, R2
+	jz command_icp51_chip_erase_ok
+	ajmp error_extarg
+command_icp51_chip_erase_ok:
 	acall ensure_no_args
+command_icp51_chip_erase_noargs:
 	acall icp51_init
-	; wysyłamy 00,00,26,1 (8+8+7+1 bitów) ale ostatni bit bardzo długo
+	; wysyłamy 00,00,R3,1 (8+8+7+1 bitów) ale ostatni bit bardzo długo
 	clr A
 	acall icp51_send_byte
 	clr A
 	acall icp51_send_byte
-	; kod operacji kasowania całego mikrokontrolera (flash + NVM + CONFIG0/1 tj. fuse bity)
-	mov A, #26h
+	mov A, R3
 	acall icp51_send_7bits
 	clr A
 	acall icp51_send_byte
@@ -143,6 +163,7 @@ command_icp51_chip_erase:
 ; Procedury wspólne
 
 ; W razie błędu wypisuje komunikat i nie wraca!
+; Niszczy A, C, R6, R7
 icp51_init:
 	jb flag_icp51_init, icp51_init_OK
 	; wysyłamy 5AA5

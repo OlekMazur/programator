@@ -19,6 +19,9 @@
 
 ;-----------------------------------------------------------
 ; Obsługuje komendę 1WR - wyślij/odbierz surowe dane do/z 1-wire
+if	USE_HELP_DESC
+	dw	s_help_1WR
+endif
 command_1wire_rw:
 	mov P1, #11111011b	; OW_GND do masy, jedynki gdzie indziej
 	; domyślnie 1WR 33 8 = wyślij 33h (READ ROM) i czytaj 8 bajtów
@@ -61,7 +64,11 @@ command_1wire_rw_write:
 ; "Communications can be re-established with the DS1821 while it is in
 ;  thermostat mode by pulling VDD to 0V while the DQ line is held high,
 ;  and then toggling the DQ line low 16 times (...)"
+if	USE_HELP_DESC
+	dw	s_help_1W1
+endif
 command_1wire_ds1821_exit_thermostat:
+	bcall ensure_no_args
 	mov P1, #11111011b	; OW_GND do masy, jedynki gdzie indziej
 	nop
 	clr OW_PWR			; "pulling VDD to 0V while the DQ line is held high"

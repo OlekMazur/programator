@@ -1,0 +1,38 @@
+name: Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Download & install assembler
+      run: |
+        mkdir output
+        cd output
+        wget -c 'http://plit.de/asem-51/asem51-1.3-ELF.tar.gz'
+        wget -c 'http://plit.de/asem-51/mcufiles.zip'
+        tar xf asem51-1.3-ELF.tar.gz
+        mv asem51/mcu asem51/mcu~
+        unzip -Lanq mcufiles.zip -d asem51
+        cd asem51 && mv -n mcu~/* mcu
+    - name: Build tools
+      run: make -C tools
+    - name: Build
+      run: PATH="$PWD/tools:$PWD/output/asem51:$PATH" make ASEM51="asem -i $PWD/output/asem51/mcu"
+    - name: Prepare artifact
+      run: |
+        cp LICENSE.md output
+        cd output
+        zip programator.zip LICENSE.md *.hex
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: binaries
+        path: output/programator.zip

@@ -13,7 +13,7 @@
 ; You should have received a copy of the GNU General Public License
 ; along with Programator. If not, see <https://www.gnu.org/licenses/>.
 ;
-; Copyright (c) 2022 Aleksander Mazur
+; Copyright (c) 2022, 2024 Aleksander Mazur
 ;
 ; Funkcje pomocnicze, głównie do obsługi wejścia (poleceń)
 
@@ -46,8 +46,39 @@ get_2_hex_numbers:
 ensure_no_args:
 	acall get_args_len
 	jz ret1
-error_extarg_jmp:
-	ajmp error_extarg
+error_extarg:
+	mov DPTR, #s_error_extarg
+	ajmp print_error_then_prompt
+
+;-----------------------------------------------------------
+; Wywołuje get_2_hex_numbers i subtract_address_range
+get_address_range:
+	acall get_2_hex_numbers
+	;sjmp subtract_address_range
+;-----------------------------------------------------------
+; Odejmuje adres początkowy (R4:R5) od końcowego (R2:R3);
+; jeśli wynik jest ujemny -> wypisuje błąd i nie wraca;
+; jeśli wynik jest prawidłowy, nadpisuje adres końcowy liczbą bajtów
+; w zakresie od R4:R5 do R2:R3 włącznie, tj. R2:R3 = R2:R3 - R4:R5 + 1.
+; Niszczy A, C
+subtract_address_range:
+	clr C
+	mov A, R3
+	subb A, R5
+	mov R3, A
+	mov A, R2
+	subb A, R4
+	mov R2, A
+	jc error_illopt_fwd
+	mov A, R3
+	add A, #1
+	mov R3, A
+	mov A, R2
+	addc A, #0
+	mov R2, A
+	ret
+error_illopt_fwd:
+	ajmp error_illopt
 
 ;-----------------------------------------------------------
 ; Oblicza długość argumentów w linii poleceń, tj.
@@ -100,6 +131,7 @@ convert_to_bcd:
 
 ;-----------------------------------------------------------
 ; Wypisuje rekordy Hex dla obszaru pamięci o długości R2:R3 od R4:R5
+; (R2:R3=0000 oznacza pełne 64KB).
 ; Niszczy A, B, C, R0
 ; Uaktualnia R4/R5, zeruje R2/R3
 ; DPTR = callback dostający w R7 potrzebną ilość bajtów od adresu R4:R5
@@ -108,6 +140,10 @@ convert_to_bcd:
 ;  pozostałych do zrzucenia (nieudanych) bajtów w R7, a w DPTR komunikat błędu.
 ;  Nie może zniszczyć R2, R3, R4, R5, B, a jeśli zwraca C=0, to też DPTR.
 dump_hex_file:
+	mov A, R2
+	orl A, R3
+	jz dump_hex_file_loop_limit	; 0 -> 64KB
+dump_hex_file_loop:
 	; R4:R5 = bieżący adres zrzutu (aktualizowane przez dump_hex)
 	; R2:R3 = ile bajtów pozostało zrzucić
 	mov A, R2
@@ -158,7 +194,7 @@ dump_hex_file_no_carry1:
 	inc R4
 dump_hex_file_no_carry2:
 	pop PSW
-	jnc dump_hex_file
+	jnc dump_hex_file_loop
 	; w DPTR musi już być komunikat błędu
 	ajmp print_error_then_prompt
 dump_hex_file_finish:

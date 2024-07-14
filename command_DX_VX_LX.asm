@@ -13,7 +13,7 @@
 ; You should have received a copy of the GNU General Public License
 ; along with Programator. If not, see <https://www.gnu.org/licenses/>.
 ;
-; Copyright (c) 2022 Aleksander Mazur
+; Copyright (c) 2022, 2024 Aleksander Mazur
 ;
 ; Procedura obsługi poleceń:
 ; - DX [begin-address [end-address]]
@@ -23,14 +23,17 @@
 
 ;-----------------------------------------------------------
 ; DX [begin-address [end-address]]
+if	USE_HELP_DESC
+	dw	s_help_DX
+endif
 command_dump_i2c_eeprom:
-	; domyślnie DX 0000 0800 (24C16: 16K = 2048*8)
+	; domyślnie DX 0 7FF (24C16: 16K = 2048*8)
 	clr A
 	mov R2, A
 	mov R3, A
-	mov R4, #8
-	mov R5, A
-	acall get_2_hex_numbers
+	mov R4, #7
+	mov R5, #0FFh
+	acall get_address_range
 	; mamy zakres zrzutu: R2:R3 bajtów poczynając od R4:R5
 	; rozpoczynamy odczyt
 	mov P1, #P1RD_I2C_EEPROM
@@ -48,12 +51,7 @@ cb_dump_i2c_eeprom_loop:
 	inc R0
 	djnz R7, cb_dump_i2c_eeprom_loop2
 	acall i2c_NAK_stop
-cb_ret_input_OK:
-	clr C
-cb_ret_input:
-	mov R0, #input
-ret6:
-	ret
+	sjmp cb_ret_input_OK
 cb_dump_i2c_eeprom_error:
 	mov DPTR, #s_error_i2cerr
 	sjmp cb_ret_input
@@ -63,6 +61,9 @@ cb_dump_i2c_eeprom_loop2:
 
 ;-----------------------------------------------------------
 ; VX
+if	USE_HELP_DESC
+	dw	s_help_VX
+endif
 command_verify_i2c_eeprom:
 	acall ensure_no_args
 	; rozpoczynamy odczyt
@@ -83,21 +84,16 @@ cb_verify_i2c_eeprom_loop:
 	djnz R7, cb_verify_i2c_eeprom_loop2
 	acall i2c_NAK_stop
 	; wszystko się zgadzało
-cb_lv_code_G:
-	mov A, #'G'
-	ret
-cb_lv_code_A:
-	mov A, #'A'
-	ret
-cb_lv_code_V:
-	mov A, #'V'
-	ret
+	sjmp cb_lv_code_G
 cb_verify_i2c_eeprom_loop2:
 	acall i2c_ACK
 	sjmp cb_verify_i2c_eeprom_loop
 
 ;-----------------------------------------------------------
 ; LX
+if	USE_HELP_DESC
+	dw	s_help_LX
+endif
 command_load_i2c_eeprom:
 	acall ensure_no_args
 	; rozpoczynamy zapis

@@ -13,7 +13,7 @@
 ; You should have received a copy of the GNU General Public License
 ; along with Programator. If not, see <https://www.gnu.org/licenses/>.
 ;
-; Copyright (c) 2022 Aleksander Mazur
+; Copyright (c) 2022, 2024 Aleksander Mazur
 ;
 ; Procedury obsługi poleceń:
 ; - DAE [begin-address [end-address]] - zrzut EEPROM, sygnatury, kalibracji, fuse-bitów, lock-bitów
@@ -27,14 +27,18 @@
 
 ;-----------------------------------------------------------
 ; DAE [begin-address [end-address]]
+if	USE_HELP_DESC
+	dw	s_help_DAE
+endif
 command_dump_avr_eeprom:
+	; domyślnie DAE 0 7F
 	acall avr_init
 	clr A
 	mov R2, A
 	mov R3, A
 	mov R4, A
-	mov R5, #80h	; 128 B EEPROMu
-	acall get_2_hex_numbers
+	mov R5, #7Fh	; 128 B EEPROMu
+	acall get_address_range
 	; mamy zakres zrzutu: R2:R3 bajtów poczynając od R4:R5
 	mov A, R2
 	jnz error_illopt
@@ -53,21 +57,22 @@ cb_dump_avr_eeprom_loop:
 	djnz R7, cb_dump_avr_eeprom_loop
 cb_dump_avr_ret:
 	; koniec
-	clr RS0
-	clr C
-	mov R0, #input
-	ret
+	ajmp cb_ret_RS_input_OK
 
 ;-----------------------------------------------------------
 ; DA [begin-address [end-address]]
+if	USE_HELP_DESC
+	dw	s_help_DA
+endif
 command_dump_avr_flash:
+	; domyślnie DA 0 7FF
 	acall avr_init
 	clr A
 	mov R2, A
 	mov R3, A
-	mov R4, #8h
-	mov R5, A
-	acall get_2_hex_numbers
+	mov R4, #7h
+	mov R5, #0FFh
+	acall get_address_range
 	; mamy zakres zrzutu: R2:R3 bajtów poczynając od R4:R5
 	mov DPTR, #cb_dump_avr_flash
 	ajmp dump_hex_file
@@ -87,6 +92,9 @@ cb_dump_avr_flash_loop:
 
 ;-----------------------------------------------------------
 ; VAE
+if	USE_HELP_DESC
+	dw	s_help_VAE
+endif
 command_verify_avr_eeprom:
 	acall ensure_no_args
 	acall avr_init
@@ -98,11 +106,13 @@ cb_verify_avr_eeprom:
 	acall avr_common_verify
 	djnz R7, cb_verify_avr_eeprom
 cb_avr_code_G:
-	mov A, #'G'
-	ret
+	ajmp cb_lv_code_G
 
 ;-----------------------------------------------------------
 ; VA
+if	USE_HELP_DESC
+	dw	s_help_VA
+endif
 command_verify_avr_flash:
 	acall ensure_no_args
 	acall avr_init
@@ -117,6 +127,9 @@ cb_verify_avr_flash:
 
 ;-----------------------------------------------------------
 ; LAE
+if	USE_HELP_DESC
+	dw	s_help_LAE
+endif
 command_load_avr_eeprom:
 	acall ensure_no_args
 	acall avr_init
@@ -179,6 +192,9 @@ cb_avr_code_F:
 
 ;-----------------------------------------------------------
 ; LA
+if	USE_HELP_DESC
+	dw	s_help_LA
+endif
 command_load_avr_flash:
 	acall ensure_no_args
 	acall avr_init
@@ -218,21 +234,6 @@ cb_load_avr_flash:
 	mov A, #01001100b
 	acall avr_write_eeprom_AR4R5atR0
 	ajmp cb_load_avr_eeprom_finish
-
-;-----------------------------------------------------------
-; KA
-command_avr_chip_erase:
-	acall ensure_no_args
-	acall avr_init
-	; Chip Erase: 1010 1100 100x xxxx xxxx xxxx xxxx xxxx
-	mov A, #10101100b
-	mov R4, #10000000b
-	acall avr_write_eeprom_AR4R5atR0
-	jc avr_error
-	ret
-
-;===========================================================
-; Procedury wspólne
 
 ;-----------------------------------------------------------
 ; Odczytuje bajt spod podanego adresu EEPROM lub podobnie zorganizowanej pamięci
@@ -334,3 +335,18 @@ avr_write_eeprom_AR4R5atR0:
 	mov A, @R0
 	acall avr_transfer_byte
 	ajmp avr_wait_until_ready
+
+;-----------------------------------------------------------
+; KA
+if	USE_HELP_DESC
+	dw	s_help_KA
+endif
+command_avr_chip_erase:
+	acall ensure_no_args
+	acall avr_init
+	; Chip Erase: 1010 1100 100x xxxx xxxx xxxx xxxx xxxx
+	mov A, #10101100b
+	mov R4, #10000000b
+	acall avr_write_eeprom_AR4R5atR0
+	jc avr_error
+	ret

@@ -15,9 +15,13 @@
 ;
 ; Copyright (c) 2022, 2024 Aleksander Mazur
 ;
-; Procedura obsługi polecenia W {P1 | P3} byte
-; Wpisuje wartość do portu
+; Procedura obsługi polecenia W
 
+;-----------------------------------------------------------
+; W P1 XX
+if	USE_HELP_DESC
+	dw	s_help_W_P1
+endif
 command_write_P1:
 	acall get_hex_arg
 	jc error_argreq
@@ -25,6 +29,11 @@ command_write_P1:
 	mov P1, R3
 	ret
 
+;-----------------------------------------------------------
+; W P3 XX
+if	USE_HELP_DESC
+	dw	s_help_W_P3
+endif
 command_write_P3:
 	acall get_hex_arg
 	jc error_argreq
@@ -45,6 +54,11 @@ get_new_param_value:
 	ajmp ensure_no_args
 
 if	USE_I2C
+;-----------------------------------------------------------
+; W PG XX
+if	USE_HELP_DESC
+	dw	s_help_W_PG
+endif
 command_write_pagemask:
 	acall get_new_param_value
 	mov i2c_eeprom_page_mask, R3
@@ -52,24 +66,39 @@ command_write_pagemask:
 endif
 
 if	ICP51_W79EX051
-command_write_icp51_delay:
-	acall get_new_param_value
-	mov icp51_clock_delay, R3
-	ret
-
-command_write_icp51_delay_low:
-	acall get_new_param_value
-	mov icp51_clock_delay_low, R3
-	ret
-
-command_write_icp51_delay_high:
-	acall get_new_param_value
-	mov icp51_clock_delay_high, R3
-	ret
-
+;-----------------------------------------------------------
+; W RF XX
+if	USE_HELP_DESC
+	dw	s_help_W_RF
+endif
 command_write_icp51_cmd_read_flash:
 	acall get_new_param_value
 	mov icp51_cmd_read_flash, R3
+	ret
+endif
+
+if	USE_AT89CX051
+;-----------------------------------------------------------
+; W AM XX
+if	USE_HELP_DESC
+	dw	s_help_W_AM
+endif
+command_write_at89cx051_mask:
+	acall get_new_param_value
+	mov at89cx051_addr_H_mask, R3
+	setb flag_at89cx051_init	; przyjmijmy, że użytkownik wie, co robi
+	ret
+
+;-----------------------------------------------------------
+; W A XXXX
+if	USE_HELP_DESC
+	dw	s_help_W_A
+endif
+command_write_at89cx051_address:
+	acall get_new_param_value
+	mov at89cx051_addr_H, R2
+	mov at89cx051_addr_L, R3
+	setb flag_at89cx051_init	; przyjmijmy, że użytkownik wie, co robi
 	ret
 endif
 

@@ -45,15 +45,26 @@ icp51_recv_bit:
 ; Opuszcza linię zegara i czeka przez zadany czas
 icp51_clock_tick_low:
 	clr ICP51_CLK
-	mov R6, icp51_clock_delay_low
-	djnz R6, $
-	ret
+	; miało być 10 nop-ów
+	sjmp wait_R6
 
 ;-----------------------------------------------------------
 ; Podnosi linię zegara i czeka przez zadany czas
 icp51_clock_tick_high:
 	setb ICP51_CLK
-	mov R6, icp51_clock_delay_high
+	; miało być 6 nop-ów
+	;sjmp wait_R6
+;-----------------------------------------------------------
+; Dodatkowe opóźnienia w icp51_clock_tick_* są zbędne w AT89CX051, ale
+; W79EX051 jest szybszy:
+; - acall - 12 cykli zamiast 24
+; - clr/setb bit - 8 cykli zamiast 12
+; - mov RX, #imm - 8 cykli zamiast 12
+; - djnz RX, addr - 12 cykli zamiast 24
+; - ret - 8 cykli zamiast 24
+; Niszczy R6
+wait_R6:
+	mov R6, #3
 	djnz R6, $
 	ret
 
@@ -96,15 +107,13 @@ icp51_recv_bits_loop:
 	ret
 
 ;-----------------------------------------------------------
-; Wysyła bit z C i czeka z CLK w stanie niskim przez czas R6*2*256 djnz'ów
-; Niszczy R6, R7
+; Wysyła bit z C i długo czeka z CLK w stanie niskim.
+; Niszczy R7
 icp51_send_bit_slow:
 	mov ICP51_DAT, C
 	clr ICP51_CLK
-	mov R7, #0
-icp51_send_bit_slow_loop:
-	djnz R7, $
-	djnz R7, $
-	djnz R6, icp51_send_bit_slow_loop
+	; miało być 30*33*77=76230 nop-ów
+	; było 256*2*256 djnz-ów czyli 95ms
+	acall sleep_timer0_max
 	setb ICP51_CLK
 	ret

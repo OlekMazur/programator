@@ -13,14 +13,18 @@
 ; You should have received a copy of the GNU General Public License
 ; along with Programator. If not, see <https://www.gnu.org/licenses/>.
 ;
-; Copyright (c) 2022 Aleksander Mazur
+; Copyright (c) 2022, 2024 Aleksander Mazur
 ;
 ; Procedura obsługi polecenia H (Help)
 ; Podaje listę wszystkich dostępnych komend
 
+;-----------------------------------------------------------
+; H
+if	USE_HELP_DESC
+	dw	s_help_H
+endif
 command_help:
 	bcall ensure_no_args
-	mov DPTR, #s_commands
 	clr A
 	dec A
 	push ACC	; push -1
@@ -28,6 +32,8 @@ command_help:
 	clr A
 	; A=0 - zaczynamy od początku listy
 
+command_help_next_reset_dptr:
+	mov DPTR, #s_commands
 command_help_next:
 	; A = bieżący offset
 	cjne A, #-1, command_help_next_ok
@@ -36,8 +42,9 @@ command_help_next:
 
 command_help_next_ok:
 	mov R2, A
-	movc A, @A + DPTR
-	; A = kod pod bieżącym offsetem
+	acall get_next_from_dptr_a
+	; R2 = offset za znakiem
+	; A = kod znaku na liście przejść stanu
 	; A=0 -> koniec komendy
 	jz command_help_print_cmd
 	; A=-1 -> powrót
@@ -47,10 +54,8 @@ command_help_next_ok:
 command_help_collect_char:
 	mov @R0, A
 	inc R0
-	inc R2		; R2 = offset za znakiem
-	mov A, R2	; A = offset podlisty
-	movc A, @A + DPTR
-	inc R2
+	; A = offset podlisty
+	acall get_next_from_dptr_r2
 	push AR2	; zapisujemy offset następnego znaku w tej podliście
 	sjmp command_help_next_ok
 
@@ -60,19 +65,83 @@ command_help_print_cmd:
 	mov R1, #input
 command_help_print_cmd_loop:
 	mov A, @R1
-	jz command_help_print_cmd_crlf
+	jz command_help_print_cmd2
 	bcall uart_send_char
 	inc R1
 	sjmp command_help_print_cmd_loop
-command_help_print_cmd_crlf:
+command_help_print_cmd2:
+if	USE_HELP_DESC
+	; sprawdzamy kod realizujący komendę
+	acall get_next_from_dptr_r2
+	cjne A, #2, command_help_not_ljmp
+	; LJMP hh ll - adres bezwzględny jest w dwóch kolejnych bajtach
+	acall get_next_from_dptr_r2
+	mov R6, A
+	acall get_next_from_dptr_r2
+	mov R7, A
+	sjmp command_help_print_desc
+command_help_not_ljmp:
+	; czy to AJMP? kody 01h, 21h, 41h, 61h, 81h, A1h, C1h, E1h
+	mov R6, A
+	anl A, #00011111b
+	cjne A, #01h, command_help_not_ajmp
+	; 8 najmłodszych bitów adresu jest w drugim bajcie rozkazu
+	; 3 kolejne są w najstarszych bitach pierwszego bajtu (które właśnie zamaskowaliśmy)
+	; najstarsze bity są takie, jak w punkcie skoku, czyli w DPTR po przejściu za rozkaz
+	mov A, R6
+	rl A
+	rl A
+	rl A
+	anl A, #00000111b
+	mov R6, A
+	acall get_next_from_dptr_r2
+	mov R7, A
+	mov A, DPH
+	anl A, #11111000b
+	orl A, R6
+	mov R6, A
+command_help_print_desc:
+	mov A, #9	; tab
+	bcall uart_send_char
+	; w R6:R7 mamy adres docelowy skoku realizującego komendę
+	; 2 bajty wcześniej powinien być adres tekstu z krótkim opisem komendy
+	clr C
+	mov A, R7
+	subb A, #2
+	mov R7, A
+	mov A, R6
+	subb A, #0
+	mov DPH, A
+	mov DPL, R7
+	; DPTR := code[DPTR]
+	clr A
+	movc A, @A + DPTR
+	mov R6, A
+	mov A, #1
+	movc A, @A + DPTR
+	mov DPH, R6
+	mov DPL, A
+	bcall uart_send_rom
+command_help_not_ajmp:
+endif
 	; i enter
 	bcall uart_send_crlf
-
 command_help_pop:
 	; wracamy poziom wyżej
 	dec R0
 	pop ACC
+if	USE_HELP_DESC
+	sjmp command_help_next_reset_dptr
+else
 	sjmp command_help_next
+endif
 
-command_help_end:
+;-----------------------------------------------------------
+; Pobiera bajt spod DPTR+R2 do A i zwiększa R2
+; A := code[DPTR + R2++]
+get_next_from_dptr_r2:
+	mov A, R2
+get_next_from_dptr_a:
+	movc A, @A + DPTR
+	inc R2
 	ret

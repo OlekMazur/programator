@@ -13,7 +13,7 @@
 ; You should have received a copy of the GNU General Public License
 ; along with Programator. If not, see <https://www.gnu.org/licenses/>.
 ;
-; Copyright (c) 2022 Aleksander Mazur
+; Copyright (c) 2022, 2024 Aleksander Mazur
 ;
 ; Procedura obsługi poleceń:
 ; - DY [begin-address [end-address]]
@@ -23,6 +23,9 @@
 
 ;-----------------------------------------------------------
 ; DY [begin-address [end-address]]
+if	USE_HELP_DESC
+	dw	s_help_DY
+endif
 command_dump_spi_eeprom:
 	bcall spi_eeprom_autodetect
 	; domyślny zakres adekwatny do liczby bitów adresu
@@ -46,7 +49,14 @@ command_dump_spi_eeprom_shl:
 	; 6, 7 bitów -> 2^7=128 bajtów
 	; 8, 9 bitów -> 2^9=512 bajtów
 	; 10, 11 bitów -> 2^11=2048 bajtów
-	bcall get_2_hex_numbers
+	clr C
+	mov A, R5
+	subb A, #1
+	mov R5, A
+	mov A, R4
+	subb A, #0
+	mov R4, A
+	bcall get_address_range
 	; mamy zakres zrzutu: R2:R3 bajtów poczynając od R4:R5
 	mov DPTR, #cb_dump_spi_eeprom
 	bjmp dump_hex_file
@@ -93,6 +103,9 @@ cb_dump_spi_eeprom_error:
 
 ;-----------------------------------------------------------
 ; VY
+if	USE_HELP_DESC
+	dw	s_help_VY
+endif
 command_verify_spi_eeprom:
 	bcall ensure_no_args
 	bcall spi_eeprom_autodetect
@@ -139,6 +152,9 @@ cb_spi_eeprom_code_V:
 
 ;-----------------------------------------------------------
 ; LY
+if	USE_HELP_DESC
+	dw	s_help_LY
+endif
 command_load_spi_eeprom:
 	bcall ensure_no_args
 	bcall spi_eeprom_autodetect

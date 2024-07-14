@@ -111,7 +111,6 @@ spi_eeprom_check_address:
 	ret
 spi_eeprom_check_address_ok:
 	clr C
-ret9:
 	ret
 
 ;-----------------------------------------------------------
@@ -180,9 +179,10 @@ spi_eeprom_send_cmd_addr_error:
 spi_eeprom_start_reading:
 	mov A, #11000000b	; READ: 1,1,0
 	bcall spi_eeprom_send_cmd_addr
-	jc ret9
+	jc spi_ret1
 	; najmłodszy bit powinien być 0 -> do C z nim
 	rrc A
+spi_ret1:
 	ret
 
 ;-----------------------------------------------------------
@@ -192,10 +192,11 @@ spi_eeprom_start_reading:
 spi_eeprom_start_writing:
 	mov A, #10100000b	; WRITE: 1,0,1
 	bcall spi_eeprom_send_cmd_addr
-	jc ret9
+	jc spi_ret2
 	; najmłodszy bit powinien być 1 -> do C z nim
 	rrc A
 	cpl C
+spi_ret2:
 	ret
 
 ;-----------------------------------------------------------
@@ -203,15 +204,7 @@ spi_eeprom_start_writing:
 ; Inkrementuje R4:R5 i R0
 cb_dump_spi_eeprom_byte:
 	bcall spi_read_byte
-cb_common_store_increment:
-	mov @R0, A
-cb_common_increment:
-	inc R0
-	inc R5
-	cjne R5, #0, ret10
-	inc R4
-ret10:
-	ret
+	bjmp cb_common_store_increment
 
 ;-----------------------------------------------------------
 ; Obsługuje weryfikację jednego bajtu spod R4:R5 z @R0
@@ -221,7 +214,7 @@ cb_verify_spi_eeprom_byte:
 	bcall spi_read_byte
 	mov R2, A
 	mov A, @R0
-	sjmp cb_common_increment
+	bjmp cb_common_increment
 
 ;-----------------------------------------------------------
 ; Obsługuje zapis jednego bajtu spod @R0 do R4:R5
@@ -229,4 +222,4 @@ cb_verify_spi_eeprom_byte:
 cb_load_spi_eeprom_byte:
 	mov A, @R0
 	bcall spi_transfer_byte
-	sjmp cb_common_increment
+	bjmp cb_common_increment

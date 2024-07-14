@@ -18,6 +18,11 @@
 ; Procedura obsługi polecenia R
 ; Wypluwa wartości różnych rejestrów
 
+;-----------------------------------------------------------
+; R
+if	USE_HELP_DESC
+	dw	s_help_R
+endif
 command_read:
 	acall ensure_no_args
 	mov R6, #'1'
@@ -41,33 +46,29 @@ endif
 if	ICP51_W79EX051
 	acall uart_send_space
 
-	mov A, #'R'	; R - ICP51 clock delay
-	mov R7, icp51_clock_delay
-	acall print_rest
-
-	acall uart_send_space
-
-	mov A, #'W'
-	acall uart_send_char
-	mov A, #'L'	; WL - ICP51 clock delay (w stanie niskim przed impulsem)
-	mov R7, icp51_clock_delay_low
-	acall print_rest
-
-	acall uart_send_space
-
-	mov A, #'W'
-	acall uart_send_char
-	mov A, #'H'	; WH - ICP51 clock delay (w stanie wysokim)
-	mov R7, icp51_clock_delay_high
-	acall print_rest
-
-	acall uart_send_space
-
 	mov A, #'R'
 	acall uart_send_char
 	mov A, #'F'	; RF - ICP51 flash read command code
 	mov R7, icp51_cmd_read_flash
 	acall print_rest
+endif
+
+if	USE_AT89CX051
+	acall uart_send_space
+
+	mov A, #'A'
+	acall uart_send_char
+	mov A, #'M'	; AM - AT89CX051 address mask
+	mov R7, at89cx051_addr_H_mask
+	acall print_rest
+
+	acall uart_send_space
+
+	mov A, #'A'	; A - AT89CX051 address counter
+	mov R7, at89cx051_addr_H
+	acall print_rest
+	mov A, at89cx051_addr_L
+	acall uart_send_hex_byte
 endif
 
 	ret

@@ -19,6 +19,9 @@
 
 ;-----------------------------------------------------------
 ; NT
+if	USE_HELP_DESC
+	dw	s_help_NT
+endif
 command_icp51_transfer:
 	clr flag_7bits
 	clr flag_now_lsb	; cały bajt składamy z dwóch cyfr szesnastkowych w R2
@@ -80,7 +83,6 @@ command_icp51_transfer_not_L:
 	jb flag_now_lsb, error_nothex_fwd
 	setb C
 command_icp51_send_bit_slow:
-	mov R6, icp51_clock_delay
 	acall icp51_send_bit_slow
 	sjmp command_icp51_transfer_loop
 
@@ -109,6 +111,9 @@ command_icp51_transfer_7bits:
 
 ;-----------------------------------------------------------
 ; NR
+if	USE_HELP_DESC
+	dw	s_help_NR
+endif
 command_icp51_reset:
 	acall ensure_no_args
 	; jeśli mikrokontroler był już zainicjowany w trybie programowania, to zresetujmy go i zainicjujmy ponownie
@@ -116,11 +121,7 @@ command_icp51_reset:
 	sjmp command_icp51_reset_skip
 command_icp51_reset2:
 	clr ICP51_RST
-	mov R6, #0
-	mov R7, #0
-command_icp51_reset_loop:
-	djnz R7, $
-	djnz R6, command_icp51_reset_loop
+	acall sleep_timer0_max
 	setb ICP51_RST
 command_icp51_reset_skip:
 	ajmp icp51_init

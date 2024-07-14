@@ -13,19 +13,28 @@
 ; You should have received a copy of the GNU General Public License
 ; along with Programator. If not, see <https://www.gnu.org/licenses/>.
 ;
-; Copyright (c) 2022 Aleksander Mazur
+; Copyright (c) 2022, 2024 Aleksander Mazur
 ;
 ; Procedura obsługi polecenia DR [begin-address [end-address]]
 ; Zrzuca zawartość RAM hosta
 
+;-----------------------------------------------------------
+; DR [begin-address [end-address]]
+if	USE_HELP_DESC
+	dw	s_help_DR
+endif
 command_dump_host_RAM:
-	; domyślnie DR 0000 0080
+	; domyślnie DR 0 7F
 	clr A
 	mov R2, A
 	mov R3, A
 	mov R4, A
-	mov R5, #80h
-	acall get_2_hex_numbers
+ifdef	TIMER2	; 8052 ma TIMER2 i 256B RAM-u, 8051 nie ma TIMERa2 i ma 128B RAM-u
+	mov R5, #0FFh
+else
+	mov R5, #7Fh
+endif
+	acall get_address_range
 command_dump_host_RAM_internal:
 	; mamy zakres zrzutu: R2:R3 bajtów poczynając od R4:R5
 	mov DPTR, #cb_dump_RAM

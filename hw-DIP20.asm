@@ -14,8 +14,6 @@
 ; along with Programator. If not, see <https://www.gnu.org/licenses/>.
 ;
 ; Copyright (c) 2022 Aleksander Mazur
-;
-; Konfiguracja buildu
 
 ; I2C - podłączenie AT24CXX
 I2C_EEPROM_WP	equ P1.7		; Write Protect (1=protected)
@@ -53,13 +51,3 @@ AVR_SCK			equ	P1.7
 AVR_MISO		equ	P1.6
 AVR_MOSI		equ	P1.5
 AVR_nRST		equ	P1.4
-
-; konfiguracja buildu
-AT89C4051		equ	1
-USE_HELP		equ	1
-DEBUG			equ	1
-ICP51_W79EX051	equ	1
-USE_1WIRE		equ	1
-USE_I2C			equ	1
-USE_SPI			equ	1
-USE_AVR			equ	1
