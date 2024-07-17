@@ -15,6 +15,14 @@
 ;
 ; Copyright (c) 2022, 2024 Aleksander Mazur
 
+error_argreq:
+	mov DPTR, #s_error_argreq
+	ajmp print_error_then_prompt
+
+error_illopt:
+	mov DPTR, #s_error_illopt
+	ajmp print_error_then_prompt
+
 if USE_AVR or ICP51_W79EX051 or USE_AT89CX051
 if ICP51_W79EX051
 ;-----------------------------------------------------------
@@ -35,6 +43,7 @@ endif
 ; + czas liczenia przez timer (j.w.)
 ; + ewentualny czas wybudzania się z trybu IDLE
 sleep_timer0:
+	clr flag_timer
 	setb TR0	; 12 cykli
 sleep_cont:
 	jbc flag_timer, cb_ret	; 24 cykle

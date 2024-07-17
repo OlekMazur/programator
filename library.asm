@@ -119,6 +119,7 @@ convert_hex_digit_09:
 	clr C
 	ret
 
+if	USE_SPI
 ;-----------------------------------------------------------
 ; Konwertuje liczbę w A (< 100) na BCD
 ; Niszczy B
@@ -128,6 +129,7 @@ convert_to_bcd:
 	swap A
 	orl A, B
 	ret
+endif
 
 ;-----------------------------------------------------------
 ; Wypisuje rekordy Hex dla obszaru pamięci o długości R2:R3 od R4:R5
@@ -398,7 +400,7 @@ load_hex_rec_empty:
 ; Dekoduje liczbę szesnastkową podaną w ASCII do rejestrów R2:R3.
 ; R1 = adres znaku przed liczbą (spodziewana spacja)
 ; R0 = adres pierwszego miejsca za argumentem
-; Jeśli nie ma żadnego argumentu (R0=R1), zwraca C=1 nie ruszając R2/R3.
+; Jeśli nie ma żadnego argumentu (R0==R1), zwraca C=1 nie ruszając R2/R3.
 ; Jeśli argument jest, ale zły, to funkcja nie wraca.
 ; W przeciwnym razie zwraca C=0 i liczbę w R2:R3 oraz przesuwa R1
 ;  na pierwszą pozycję za zdekodowaną liczbę.
@@ -457,3 +459,36 @@ error_notspc:
 error_nothex:
 	mov DPTR, #s_error_nothex
 	ajmp print_error_then_prompt
+
+if ICP51_W79EX051 or USE_1WIRE or USE_I2C
+;-----------------------------------------------------------
+; Dekoduje dwucyfrową liczbę szesnastkową podaną w ASCII i zwraca C=0,
+; albo - jeśli na pierwszej pozycji jest inny znak niż cyfra szesnastkowa
+; - zwraca kod tego znaku i C=1. Jeśli R1==R0, zwraca C=1 i A=0.
+; Jeśli zamiast drugiej cyfry jest nieprawidłowy znak, to nie wraca.
+; R1 = adres pierwszego znaku do zdekodowania
+; R0 = adres pierwszego miejsca za argumentem
+; Niszczy A, C, R7, przesuwa R1 za zdekodowane znaki
+get_hex_or_char:
+	acall get_args_len
+	setb C
+	jz ret5		; koniec argumentów
+	mov A, @R1
+	inc R1
+	acall convert_hex_digit
+	jc ret5		; nie-cyfra
+	swap A
+	mov R7, A
+	acall get_args_len
+	jz error_argreq_fwd	; brak drugiej cyfry
+	mov A, @R1
+	inc R1
+	acall convert_hex_digit
+	jc error_nothex	; drugi znak to nie cyfra
+	orl A, R7
+ret5:
+	ret
+error_argreq_fwd:
+	ajmp error_argreq
+
+endif

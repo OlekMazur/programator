@@ -56,14 +56,15 @@ Commands
 | W P3    | \<byte\>  | Sets output of port P3, except P3.0 (RXD) and P3.1 (TXD) |
 | W PG    | \<byte\>  | Sets mask of adresses inside the same page of I²C EEPROM |
 | W RF    | \<byte\>  | Sets code of operation performed by D and V commands |
-| 1WR     | \<send\> \<recv\> | Reset 1-wire device, send some bytes and receive some bytes from it |
 | 1W1     |           | Restore 1-wire mode (exit thermostate mode) of DS1821 |
+| 1W      | \<desc\>  | Reset 1-wire device and transfer raw data |
+| I2C     | \<desc\>  | Transfer raw data to/from an I²C device |
 | D       | \[\<begin\> \[\<end\>\]\] | Dumps memory of W79EX051 |
 | V       |           | Verifies memory of W79EX051 against given Intel HEX data |
 | LB      |           | Loads memory of W79EX051 from given Intel HEX data |
 | K       | \[\<code\>\] | Clears selected memory of W79EX051 |
 | NR      |           | Resets W79EX051 |
-| NT      | \<desc\>  | Performs raw transfer to/from W79EX051 |
+| NT      | \<desc\>  | Transfer raw data to/from W79EX051 |
 | DX      | \[\<begin\> \[\<end\>\]\] | Dumps contents of I²C EEPROM |
 | VX      |           | Verifies contents of I²C EEPROM against given Intel HEX data |
 | LX      |           | Loads contents of I²C EEPROM from given Intel HEX data |
@@ -90,26 +91,26 @@ Prints all supported commands along with short description.
 W79EX051/AVR PROGRAMMER VERSION 1.1  Copyright (c) 2022-2024 Aleksander Mazur
 > H
 H	Print this help
-R	Read registers & configuration
+R	Read regs & show config
 W P1	Write to P1
 W P3	Write to P3
 W PG	Set PaGe mask: 7 for AT24C01/2, F for AT24C04 and bigger
 W RF	Set Read Flash code used by D&V commands
-DX	Dump AT24CXX EEPROM (I2C)
-DY	Dump 93XXY6Z EEPROM (SPI)
+DX	Dump AT24CXX
+DY	Dump 93XXY6Z
 DAE	Dump AVR EEPROM
 DA	Dump AVR flash
 DR	Dump internal RAM
 DP	Dump internal flash
 D	Dump W79EX051 memory
-VX	Verify AT24CXX EEPROM (I2C)
-VY	Verify 93XXY6Z EEPROM (SPI)
+VX	Verify AT24CXX
+VY	Verify 93XXY6Z
 VAE	Verify AVR EEPROM
 VA	Verify AVR flash
 VR	Verify internal RAM
 V	Verify W79EX051 memory
-LX	Load AT24CXX EEPROM (I2C)
-LY	Load 93XXY6Z EEPROM (SPI)
+LX	Load AT24CXX
+LY	Load 93XXY6Z
 LAE	Load AVR EEPROM
 LA	Load AVR flash
 LR	Load internal RAM
@@ -118,8 +119,9 @@ KA	Klear AVR (Chip Erase)
 K	Klear W79EX051: 26=erase all, 22=AP flash (default), 62=NVM
 NR	Reset W79EX051 & enter ICP mode
 NT	Transfer to/from W79EX051 (no reset): NT 0000S0BRJ FB00S0CRZ RJ
-1WR	Transfer to/from 1-wire: 1WR 33 8
 1W1	Exit thermostat mode of DS1821
+1W	Transfer to/from 1-wire: 33RRRRRRRR
+I2C	Transfer to/from I2C: A000SA1RKRN
 ```
 
 ### Command R
@@ -157,13 +159,49 @@ In case of AT24C04 and bigger it can be set to 0F = 16 bytes per page.
 P1:FE P3:BF PG:0F RF:00
 ```
 
-### Command 1WR
+### Command 1W
 
-Reset, send 1 or 2 bytes, then receive given number of bytes.
+Syntax of \<desc\>:
+
+| Input | Description |
+| ----- | ----------- |
+| space | Reset, echo space |
+| XX (hex byte) | Send given byte |
+| R | Receive one byte |
+| W | Receive bits in a loop until 1 arrives |
+
 Examples:
-- `1WR 33 8` - Read ROM
-- `1WR CC44 0` - Skip ROM, Convert T (DS18B20)
-- `1WR CCBE 9` - Skip ROM, Read Scratchpad (DS18B20)
+- `1W 33RRRRRRRR` - reset, read ROM code
+- `1W CC44W CCBERRRRRRRRR` - reset, initiate temperature conversion,
+  wait for completion, reset, read 9 bytes of scratchpad (DS18B20)
+- `1W CC4E12341F CCBERRRRRRRRR` - reset, write 3 bytes to scratchpad,
+  reset, read 9 bytes of scratchpad (DS18B20)
+- `1W CCF08000RRRRRRRRRRRRRRRR` - reset, read 16 bytes @80h (DS2431)
+
+### Command I2C
+
+Syntax of \<desc\>:
+
+| Input | Description |
+| ----- | ----------- |
+| space | STOP (only if preceded by START); START |
+| XX (hex byte) | Send given byte |
+| R | Receive one byte |
+| S | START |
+| K | ACK |
+| N | NAK |
+
+STOP is also implicitly sent at the end of the command if there was
+START before.
+
+Examples:
+- `I2C A000SA1RKRN` - read 2 bytes from AT24C04
+- `I2C 86000CD077 C2080C8819A0` - setup TDA9887 & FM1216ME for FM
+  stereo reception, tune to 92.3 MHz
+- `I2C 86000C3077 C2080C8859A0` - setup TDA9887 & FM1216ME for FM
+  mono reception, tune to 92.3 MHz
+- `I2C 86S87RKRKRKRKRKRKRKRKRKRKRN` - read status of TDA9887
+- `I2C C2SC3RN` - read status of FM1216ME
 
 ### Commands D* (dump)
 

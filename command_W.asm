@@ -17,15 +17,30 @@
 ;
 ; Procedura obsługi polecenia W
 
+; część wspólna procedur zapisu parametru w RAM
+; zwraca nową wartość parametru w R2:R3
+get_new_param_word:
+	acall get_hex_arg
+	jc error_argreq_fwd2
+	ajmp ensure_no_args
+error_argreq_fwd2:
+	ajmp error_argreq
+
+; zwraca nową wartość parametru w R3
+get_new_param_value:
+	acall get_new_param_word
+	cjne R2, #0, error_extarg_fwd
+	ret
+error_extarg_fwd:
+	ajmp error_extarg
+
 ;-----------------------------------------------------------
 ; W P1 XX
 if	USE_HELP_DESC
 	dw	s_help_W_P1
 endif
 command_write_P1:
-	acall get_hex_arg
-	jc error_argreq
-	acall ensure_no_args
+	acall get_new_param_value
 	mov P1, R3
 	ret
 
@@ -35,9 +50,7 @@ if	USE_HELP_DESC
 	dw	s_help_W_P3
 endif
 command_write_P3:
-	acall get_hex_arg
-	jc error_argreq
-	acall ensure_no_args
+	acall get_new_param_value
 	; musimy ochronić 2 najmłodsze bity P3 (czyli RXD i TXD) przed zmianą
 	mov A, R3
 	anl A, #11111100b
@@ -45,13 +58,6 @@ command_write_P3:
 	orl A, #00000011b
 	anl P3, A
 	ret
-
-; część wspólna procedur zapisu parametru w RAM
-; zwraca nową wartość parametru w R2:R3
-get_new_param_value:
-	acall get_hex_arg
-	jc error_argreq
-	ajmp ensure_no_args
 
 if	USE_I2C
 ;-----------------------------------------------------------
@@ -95,7 +101,7 @@ if	USE_HELP_DESC
 	dw	s_help_W_A
 endif
 command_write_at89cx051_address:
-	acall get_new_param_value
+	acall get_new_param_word
 	mov at89cx051_addr_H, R2
 	mov at89cx051_addr_L, R3
 	setb flag_at89cx051_init	; przyjmijmy, że użytkownik wie, co robi
@@ -108,12 +114,12 @@ if	USE_HELP_DESC
 endif
 command_write_at89cx051_nobsy:
 	acall get_new_param_value
+	clr C
 	mov A, R3
 	rrc A
+	jz command_write_at89cx051_nobsy_ok
+	ajmp error_illopt	; podano parametr inny niż 0 lub 1
+command_write_at89cx051_nobsy_ok:
 	mov flag_at89cx051_nobsy, C
 	ret
 endif
-
-error_argreq:
-	mov DPTR, #s_error_argreq
-	ajmp print_error_then_prompt

@@ -23,26 +23,36 @@ if	USE_HELP_DESC
 	dw	s_help_NT
 endif
 command_icp51_transfer:
-	clr flag_7bits
-	clr flag_now_lsb	; cały bajt składamy z dwóch cyfr szesnastkowych w R2
+	clr F0				; czy wysłać tylko 7 bitów z następnego bajtu
 command_icp51_transfer_loop:
-	mov A, R1
-	cjne A, AR0, command_icp51_transfer_next_char
+	acall get_hex_or_char
+	jnc command_icp51_send_byte
+	jnz command_icp51_transfer_next_char
+	; C=1, A=0 -> koniec
 	ret
+
+command_icp51_send_byte:
+	; C=0, A=bajt do wysłania (lub 7 bitów jeśli F0)
+	jbc F0, command_icp51_transfer_7bits
+	; wysyłamy bajt z A
+	acall icp51_send_byte
+	sjmp command_icp51_transfer_loop
+
+command_icp51_transfer_7bits:
+	; wysyłamy 7 bitów z A
+	acall icp51_send_7bits
+	sjmp command_icp51_transfer_loop
+
 command_icp51_transfer_next_char:
-	; R1 < R0
-	mov A, @R1
-	inc R1
+	; C=1, A=znak
 	cjne A, #' ', command_icp51_transfer_not_space
 	; spacja wraca do stanu początkowego
-	jb flag_now_lsb, error_nothex_fwd
-	acall uart_send_space
+	acall uart_send_char	; echo
 	sjmp command_icp51_transfer
 
 command_icp51_transfer_not_space:
 	cjne A, #'R', command_icp51_transfer_not_R
 	; odbieramy bajt
-	jb flag_now_lsb, error_nothex_fwd
 	acall icp51_recv_byte
 	acall uart_send_hex_byte
 	sjmp command_icp51_transfer_loop
@@ -50,21 +60,18 @@ command_icp51_transfer_not_space:
 command_icp51_transfer_not_R:
 	cjne A, #'S', command_icp51_transfer_not_S
 	; skraca następny bajt do 7 bitów (obcina najstarszy bit)
-	jb flag_now_lsb, error_nothex_fwd
-	setb flag_7bits
+	setb F0
 	sjmp command_icp51_transfer_loop
 
 command_icp51_transfer_not_S:
 	cjne A, #'Z', command_icp51_transfer_not_Z
 	; wysyłamy bit 0
-	jb flag_now_lsb, error_nothex_fwd
 	clr C
 	sjmp command_icp51_send_bit_fast
 
 command_icp51_transfer_not_Z:
 	cjne A, #'J', command_icp51_transfer_not_J
 	; wysyłamy bit 1
-	jb flag_now_lsb, error_nothex_fwd
 	setb C
 command_icp51_send_bit_fast:
 	acall icp51_send_bit
@@ -73,41 +80,19 @@ command_icp51_send_bit_fast:
 command_icp51_transfer_not_J:
 	cjne A, #'L', command_icp51_transfer_not_L
 	; wysyłamy bit 0, ale długo
-	jb flag_now_lsb, error_nothex_fwd
 	clr C
 	sjmp command_icp51_send_bit_slow
 
 command_icp51_transfer_not_L:
 	cjne A, #'H', command_icp51_transfer_not_H
 	; wysyłamy bit 1, ale długo
-	jb flag_now_lsb, error_nothex_fwd
 	setb C
 command_icp51_send_bit_slow:
 	acall icp51_send_bit_slow
 	sjmp command_icp51_transfer_loop
 
 command_icp51_transfer_not_H:
-	; teraz musi być cyfra
-	acall convert_hex_digit
-	jc error_illopt
-	jbc flag_now_lsb, command_icp51_transfer_now_lsb
-	; MSB
-	swap A
-	mov R2, A
-	setb flag_now_lsb
-	sjmp command_icp51_transfer_loop
-command_icp51_transfer_now_lsb:
-	orl A, R2
-	mov R2, A
-	; mamy cały bajt
-	jbc flag_7bits, command_icp51_transfer_7bits
-	; wysyłamy bajt z A
-	acall icp51_send_byte
-	sjmp command_icp51_transfer_loop
-command_icp51_transfer_7bits:
-	; wysyłamy 7 bitów z A
-	acall icp51_send_7bits
-	sjmp command_icp51_transfer_loop
+	ajmp error_illopt
 
 ;-----------------------------------------------------------
 ; NR

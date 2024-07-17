@@ -143,6 +143,7 @@ cb_load_at89cx051_loop2:
 	acall wait_10us	; t_GHSL: min.10µs
 	setb AT89C_VPP	; opuszczenie RST/VPP z 12V spowrotem do 5V
 	acall at89cx051_init_read_flash	; poza wystawieniem jedynek na P1 równoważne clr AT89C_ENABLE
+	clr flag_timer
 	; t_WC - czas programowania bajtu to max.2ms
 	mov TH0, #-8
 	mov TL0, #-52
@@ -156,8 +157,9 @@ cb_load_at89cx051_loop2:
 cb_load_at89cx051_wait:
 	; czekamy max.2ms na podniesienie linii /BUSY
 	jb AT89C_RDY_BSY, cb_load_at89cx051_loop4
-	jnb flag_timer, cb_load_at89cx051_wait
-	; timeout
+	jbc flag_timer, cb_load_at89cx051_timeout
+	sjmp cb_load_at89cx051_wait
+cb_load_at89cx051_timeout:
 	clr TR0
 cb_load_at89cx051_code_F:
 	mov A, #'F'

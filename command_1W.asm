@@ -13,51 +13,65 @@
 ; You should have received a copy of the GNU General Public License
 ; along with Programator. If not, see <https://www.gnu.org/licenses/>.
 ;
-; Copyright (c) 2022 Aleksander Mazur
+; Copyright (c) 2022, 2024 Aleksander Mazur
 ;
 ; Procedura obsługi poleceń 1-wire (1W*)
 
 ;-----------------------------------------------------------
-; Obsługuje komendę 1WR - wyślij/odbierz surowe dane do/z 1-wire
+; Obsługuje komendę 1W - wyślij/odbierz surowe dane do/z 1-wire
 if	USE_HELP_DESC
-	dw	s_help_1WR
+	dw	s_help_1W
 endif
-command_1wire_rw:
+command_1wire_transfer:
 	mov P1, #11111011b	; OW_GND do masy, jedynki gdzie indziej
-	; domyślnie 1WR 33 8 = wyślij 33h (READ ROM) i czytaj 8 bajtów
-	; przykład: 1WR CC44 0 = mierz temperaturę na DS18B20
-	; przykład: 1WR CCBE 9 = wyślij CC,BE (SKIP ROM + READ SCRATCHPAD) i czytaj 9 bajtów z DS18B20
-	clr A
-	mov R2, A
-	mov R3, #33h	; READ ROM
-	mov R4, A
-	mov R5, #8		; 64 bity = 8 bajtów
-	bcall get_2_hex_numbers
-	; wysyłamy R4 (jeśli nie zero), R5
-	; potem jeśli R2 nie jest zerem, to wysyłamy jeszcze R2 i R3
-	; a jeśli R2 jest zerem, to czytamy R3 bajtów
+command_1wire_transfer_loop:
+	acall get_hex_or_char
+	jnc command_1wire_send_byte
+	jnz command_1wire_handle_char
+	; C=1, A=0 -> koniec
+ret_1wire:
+	ret
+
+command_1wire_send_byte:
+	; C=0, A=bajt do wysłania
+	bcall ow_write
+	sjmp command_1wire_transfer_loop
+
+command_1wire_handle_char:
+	; C=1, A=znak
+	cjne A, #' ', command_1wire_transfer_not_space
+	; spacja = reset 1-wire
 	bcall ow_reset
 	jc error_1w_err
-	mov A, R4
-	jz command_1wire_rw_skip
-	bcall ow_write
-command_1wire_rw_skip:
-	mov A, R5
-	bcall ow_write
-	mov A, R2
-	jnz command_1wire_rw_write
-	; czytamy R3 bajtów
-command_1wire_rw_loop:
+	bcall uart_send_char	; echo
+	sjmp command_1wire_transfer
+
+command_1wire_transfer_not_space:
+	cjne A, #'R', command_1wire_transfer_not_R
+	; odbieramy bajt
 	bcall ow_read
 	bcall uart_send_hex_byte
-	djnz R3, command_1wire_rw_loop
-	ret
-command_1wire_rw_write:
-	; wysyłamy jeszcze R2 i R3
-	mov A, R2
-	bcall ow_write
-	mov A, R3
-	bjmp ow_write
+	sjmp command_1wire_transfer_loop
+
+command_1wire_transfer_not_R:
+	cjne A, #'W', command_1wire_transfer_not_W
+	; czytamy bity, dopóki jest zero (trwa pomiar)
+	clr A	; max.65536*ow_read_bit, ok.5s
+	mov R6, A
+	mov R5, A
+command_1wire_wait_loop:
+	; "the master can issue read time slots after the Convert T command ..."
+	bcall ow_read_bit
+	; "... and the DS18B20 will respond by transmitting a 0 while the temperature conversion is in progress and a 1 when the conversion is done"
+	jc command_1wire_transfer_loop
+	djnz R6, command_1wire_wait_loop
+	djnz R5, command_1wire_wait_loop
+	mov DPTR, #s_error_1w_timeout
+	bcall uart_send_rom
+	sjmp command_1wire_transfer_loop
+
+command_1wire_transfer_not_W:
+	bjmp error_illopt
 
 ;-----------------------------------------------------------
 ; Obsługuje komendę 1W1 - przywróć tryb 1-wire czujnikowi DS1821
@@ -82,9 +96,8 @@ command_1wire_ds1821_loop:	; "toggling the DQ line low 16 times"
 	nop
 	setb OW_PWR
 	bcall ow_reset
-	jc error_1w_err
-	ret
-
+	jnc ret_1wire
+	;jc error_1w_err
 ;-----------------------------------------------------------
 error_1w_err:
 	mov DPTR, #s_error_1w_err

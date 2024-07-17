@@ -41,7 +41,9 @@ command_dump_avr_eeprom:
 	acall get_address_range
 	; mamy zakres zrzutu: R2:R3 bajtów poczynając od R4:R5
 	mov A, R2
-	jnz error_illopt
+	jz command_dump_avr_eeprom_ok
+	ajmp error_illopt_fwd
+command_dump_avr_eeprom_ok:
 	mov DPTR, #cb_dump_avr_eeprom
 	ajmp dump_hex_file
 

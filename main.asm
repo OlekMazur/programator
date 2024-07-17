@@ -44,8 +44,6 @@ flag_timer:				dbit 1	; czy timer 0 zgłosił przerwanie
 flag_tx_busy:			dbit 1	; czy bufor nadawczy UART jest zajęty
 flag_rx_busy:			dbit 1	; czy nasz pomocniczy bufor odbiorczy UART (uart_rx_buffer) jest zajęty
 if	ICP51_W79EX051
-flag_7bits:				dbit 1	; czy wysłać tylko 7 bitów z następnego bajtu
-flag_now_lsb:			dbit 1	; czy teraz ma nastąpić znak z młodszą połówką liczby szesnastkowej (cały bajt składamy w R2)
 flag_icp51_init:		dbit 1	; czy mikrokontroler jest już w trybie programowania, gotowy na komendy
 endif
 if	USE_AT89CX051
@@ -338,7 +336,7 @@ $include (library.asm)
 ; Obsługa poleceń
 ; Każda procedura obsługi polecenia dostaje:
 ; R1 = adres pierwszego znaku za nazwą polecenia - tj. spacja
-; R0 = adres pierwszego znaku za linią polecenia - jeśli R0=R1, to nie ma argumentów
+; R0 = adres pierwszego znaku za linią polecenia - jeśli R0==R1, to nie ma argumentów
 
 if	ICP51_W79EX051
 if	USE_AT89CX051
@@ -349,10 +347,6 @@ $include (command_NR_NT.asm)
 elseif	USE_AT89CX051
 $include (command_D_V_L_K.asm)
 endif
-
-error_illopt:
-	mov DPTR, #s_error_illopt
-	ajmp print_error_then_prompt
 
 if	USE_AVR
 $include (command_DAE_VAE_LAE_DA_VA_LA_KA.asm)
@@ -393,6 +387,10 @@ $include (spi.asm)
 $include (command_DY_VY_LY.asm)
 endif
 
+if	USE_I2C
+$include (command_I2C.asm)
+endif
+
 ;===========================================================
 
 ; Listy przejść maszyny stanów
@@ -420,6 +418,9 @@ if	ICP51_W79EX051
 endif
 if	USE_1WIRE
 	db	'1', s_commands_1 - s_commands
+endif
+if	USE_I2C
+	db	'I', s_commands_I - s_commands
 endif
 	db	0
 	ret	; pusta komenda niech nie robi nic zamiast pisać E:BADCMD
@@ -625,12 +626,9 @@ endif
 	db	-1
 if	USE_1WIRE
 s_commands_1W:
-	db	'R', s_commands_1WR - s_commands
 	db	'1', s_commands_1W1 - s_commands
-	db	-1
-s_commands_1WR:
 	db	0
-	bjmp command_1wire_rw
+	bjmp command_1wire_transfer
 s_commands_1W1:
 	db	0
 	bjmp command_1wire_ds1821_exit_thermostat
@@ -645,6 +643,15 @@ if	USE_I2C
 s_commands_W_PG:
 	db	0
 	bjmp command_write_pagemask
+s_commands_I:
+	db	'2', s_commands_I2 - s_commands
+	db	-1
+s_commands_I2:
+	db	'C', s_commands_I2C - s_commands
+	db	-1
+s_commands_I2C:
+	db	0
+	ajmp command_i2c_transfer
 endif
 if	DEBUG
 s_commands_DR:
@@ -680,6 +687,7 @@ s_error_i2cerr:	db	"I2C KO",0
 endif
 if	USE_1WIRE
 s_error_1w_err:	db	"1-WIRE KO",0
+s_error_1w_timeout:	db	"(TIMEOUT)",0
 endif
 if	USE_SPI
 s_error_spierr:	db	"SPI KO",0
@@ -749,20 +757,21 @@ s_help_W_A:		db	"Override address counter",0
 s_help_W_NB:	db	"Whether L should ignore RDY/BSY",0
 endif
 if	USE_I2C
-s_help_DX:	db	"Dump AT24CXX EEPROM (I2C)",0
-s_help_VX:	db	"Verify AT24CXX EEPROM (I2C)",0
-s_help_LX:	db	"Load AT24CXX EEPROM (I2C)",0
+s_help_DX:	db	"Dump AT24CXX",0
+s_help_VX:	db	"Verify AT24CXX",0
+s_help_LX:	db	"Load AT24CXX",0
+s_help_I2C:	db	"Transfer to/from I2C: A000SA1RKRN",0
 endif
 if	USE_SPI
-s_help_DY:	db	"Dump 93XXY6Z EEPROM (SPI)",0
-s_help_VY:	db	"Verify 93XXY6Z EEPROM (SPI)",0
-s_help_LY:	db	"Load 93XXY6Z EEPROM (SPI)",0
+s_help_DY:	db	"Dump 93XXY6Z",0
+s_help_VY:	db	"Verify 93XXY6Z",0
+s_help_LY:	db	"Load 93XXY6Z",0
 endif
 if	USE_1WIRE
-s_help_1WR:	db	"Transfer to/from 1-wire: 1WR 33 8",0
+s_help_1W:	db	"Transfer to/from 1-wire: 33RRRRRRRR",0
 s_help_1W1:	db	"Exit thermostat mode of DS1821",0
 endif
-s_help_R:		db	"Read registers & configuration",0
+s_help_R:		db	"Read regs & show config",0
 s_help_W_P1:	db	"Write to P1",0
 s_help_W_P3:	db	"Write to P3",0
 s_help_W_PG:	db	"Set PaGe mask: 7 for AT24C01/2, F for AT24C04 and bigger",0

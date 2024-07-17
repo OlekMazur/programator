@@ -49,13 +49,10 @@ command_dump_spi_eeprom_shl:
 	; 6, 7 bitów -> 2^7=128 bajtów
 	; 8, 9 bitów -> 2^9=512 bajtów
 	; 10, 11 bitów -> 2^11=2048 bajtów
-	clr C
-	mov A, R5
-	subb A, #1
-	mov R5, A
-	mov A, R4
-	subb A, #0
-	mov R4, A
+	dec R5
+	cjne R5, #-1, command_dump_spi_no_carry
+	dec R4
+command_dump_spi_no_carry:
 	bcall get_address_range
 	; mamy zakres zrzutu: R2:R3 bajtów poczynając od R4:R5
 	mov DPTR, #cb_dump_spi_eeprom
