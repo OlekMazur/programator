@@ -13,7 +13,7 @@
 ; You should have received a copy of the GNU General Public License
 ; along with Programator. If not, see <https://www.gnu.org/licenses/>.
 ;
-; Copyright (c) 2022, 2024 Aleksander Mazur
+; Copyright (c) 2022, 2024, 2025 Aleksander Mazur
 ;
 ; Funkcje pomocnicze, głównie do obsługi wejścia (poleceń)
 
@@ -303,20 +303,25 @@ receive_hex_rec2:
 	acall receive_hex_byte
 	jc receive_hex_rec_error_H	; nie hex
 	; A = typ rekordu (0 - dane, 1 - koniec)
+	mov R6, A
+	; w R6 policzymy sobie sumę kontrolną
+	add A, R7
+	add A, R4
+	add A, R5
+	xch A, R6
 	jz receive_hex_rec_payload
+	cjne A, #1, receive_hex_rec_error_R
+receive_hex_rec_check_sum:
+	; wszystkie bajty odebrane, teraz powinna być suma kontrolna
+	acall receive_hex_byte
+	jc receive_hex_rec_error_H	; nie hex
+	add A, R6
 	setb C
-	dec A
-	jz ret7	; A=0 i C=1 oznacza EOF
-	; nieprawidłowy typ rekordu
-	mov A, #'R'
+	jz ret7	;	suma OK? to C=1 i A=0
+	mov A, #'S'
 ret7:
 	ret
 receive_hex_rec_payload:
-	; w R6 policzymy sobie sumę kontrolną
-	mov A, R7
-	add A, R4
-	add A, R5
-	mov R6, A
 	mov R0, #input	; R0 = pozycja w buforze
 	mov A, R7
 	jz receive_hex_rec_checksum
@@ -329,14 +334,12 @@ receive_hex_rec_loop:
 	inc R0
 	djnz R3, receive_hex_rec_loop
 receive_hex_rec_checksum:
-	; wszystkie bajty odebrane, teraz powinna być suma kontrolna
-	acall receive_hex_byte
-	jc receive_hex_rec_error_H	; nie hex
-	add A, R6
-	jnz receive_hex_rec_error_S
+	acall receive_hex_rec_check_sum
+	jnz ret9
+	; rekord wczytany poprawnie
 	mov R0, #input
-receive_hex_rec_eof:
 	clr C
+ret9:
 	ret
 receive_hex_rec_error_H:
 	; C=1
@@ -346,9 +349,9 @@ receive_hex_rec_error_L:
 	setb C
 	mov A, #'L'
 	ret
-receive_hex_rec_error_S:
+receive_hex_rec_error_R:
 	setb C
-	mov A, #'S'
+	mov A, #'R'
 	ret
 
 ;-----------------------------------------------------------
@@ -379,14 +382,13 @@ load_hex_file:
 	acall ensure_no_args
 load_hex_file_loop:
 	acall receive_hex_rec
-	jc load_hex_file_check
+	jc load_hex_rec_check
 	; pod R0 jest R7 bajtów do zapisu pod adres R4:R5
 	; (adres z R4:R5 jest w dziedzinie specyficznej dla callbacka)
 	mov A, R7
 	jz load_hex_rec_empty	; zabezpieczenie przed rekordem o zerowej długości
 	clr A
 	acall jmp_dptr
-load_hex_file_check:
 	jz ret8
 load_hex_file_error:
 	; w A jest znak ACK/NAK
@@ -395,6 +397,11 @@ load_hex_file_error:
 load_hex_rec_empty:
 	mov A, #'G'
 	sjmp load_hex_file_error
+load_hex_rec_check:
+	; C=1 i A=0 -> EOF; wypisujemy G i wychodzimy
+	jnz load_hex_file_error
+	mov A, #'G'
+	ajmp uart_send_char
 
 ;-----------------------------------------------------------
 ; Dekoduje liczbę szesnastkową podaną w ASCII do rejestrów R2:R3.

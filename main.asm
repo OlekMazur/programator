@@ -717,7 +717,7 @@ endif
 if	USE_AVR
 s_welcome3:	db	"AVR"
 endif
-s_welcome4:	db	" PROGRAMMER VERSION 1.1  Copyright (c) 2022-2024 Aleksander Mazur",0
+s_welcome4:	db	" PROGRAMMER VERSION 1.2  Copyright (c) 2022-2025 Aleksander Mazur",0
 
 if	USE_HELP_DESC
 if	USE_HELP
@@ -739,9 +739,9 @@ s_help_LR:	db	"Load internal RAM",0
 s_help_VR:	db	"Verify internal RAM",0
 endif
 if	ICP51_W79EX051
-s_help_D:	db	"Dump W79EX051 memory",0
-s_help_V:	db	"Verify W79EX051 memory",0
-s_help_LB:	db	"Load W79EX051 memory blindly",0
+s_help_D:	db	"Dump W79EX051",0
+s_help_V:	db	"Verify W79EX051",0
+s_help_LB:	db	"Load W79EX051 blindly",0
 s_help_K:	db	"Klear W79EX051: 26=erase all, 22=AP flash (default), 62=NVM",0
 s_help_NR:	db	"Reset W79EX051 & enter ICP mode",0
 s_help_NT:	db	"Transfer to/from W79EX051 (no reset): NT 0000S0BRJ FB00S0CRZ RJ",0

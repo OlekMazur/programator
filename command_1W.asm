@@ -25,7 +25,7 @@ endif
 command_1wire_transfer:
 	mov P1, #11111011b	; OW_GND do masy, jedynki gdzie indziej
 command_1wire_transfer_loop:
-	acall get_hex_or_char
+	bcall get_hex_or_char
 	jnc command_1wire_send_byte
 	jnz command_1wire_handle_char
 	; C=1, A=0 -> koniec
