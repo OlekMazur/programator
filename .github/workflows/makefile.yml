@@ -21,7 +21,9 @@ jobs:
         tar xf asem51-1.3-ELF.tar.gz
         mv asem51/mcu asem51/mcu~
         unzip -Lanq mcufiles.zip -d asem51
-        cd asem51 && mv -n mcu~/* mcu
+        cd asem51
+        mv -n mcu~/* mcu || true
+        rm -rf mcu~
     - name: Build tools
       run: make -C tools
     - name: Build
