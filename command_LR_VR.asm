@@ -60,3 +60,7 @@ cb_lv_host_RAM_no_copy:
 	inc R1
 	djnz R7, cb_lv_host_RAM_loop
 	sjmp cb_lv_code_G
+
+cb_lv_code_A:
+	mov A, #'A'
+	ret

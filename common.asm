@@ -71,12 +71,6 @@ cb_lv_code_V:
 	ret
 endif
 
-if DEBUG
-cb_lv_code_A:
-	mov A, #'A'
-	ret
-endif
-
 if USE_AVR or USE_SPI
 cb_common_store_increment:
 	mov @R0, A

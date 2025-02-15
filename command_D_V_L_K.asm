@@ -93,7 +93,10 @@ command_verify_at89cx051_flash:
 
 cb_verify_at89cx051:
 	acall at89cx051_go_to_R4_R5
-	jc cb_invalid_addr
+	jnc cb_verify_at89cx051_loop
+cb_at89cx051_code_A:
+	mov A, #'A'
+	ret
 cb_verify_at89cx051_loop:
 	mov A, AT89C_P1
 	mov R2, A
@@ -120,7 +123,7 @@ command_load_at89cx051_flash:
 
 cb_load_at89cx051:
 	acall at89cx051_go_to_R4_R5
-	jc cb_invalid_addr
+	jc cb_at89cx051_code_A
 cb_load_at89cx051_loop:
 	mov A, AT89C_P1
 	cpl A
