@@ -12,10 +12,16 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+    - name: Cache asem51
+      id: cache-asem51
+      uses: actions/cache@v4
+      with:
+        path: tools/asem51
+        key: asem51-1.3
     - name: Download & install assembler
+      if: steps.cache-asem51.outputs.cache-hit != 'true'
       run: |
-        mkdir output
-        cd output
+        cd tools
         wget -c 'http://plit.de/asem-51/asem51-1.3-ELF.tar.gz'
         wget -c 'http://plit.de/asem-51/mcufiles.zip'
         tar xf asem51-1.3-ELF.tar.gz
@@ -27,7 +33,7 @@ jobs:
     - name: Build tools
       run: make -C tools
     - name: Build
-      run: PATH="$PWD/tools:$PWD/output/asem51:$PATH" make ASEM51="asem -i $PWD/output/asem51/mcu"
+      run: PATH="$PWD/tools:$PWD/tools/asem51:$PATH" make ASEM51="asem -i $PWD/tools/asem51/mcu"
     - name: Prepare artifact
       run: cp LICENSE.md output
     - name: Upload artifact
